@@ -99,9 +99,34 @@ function GRP.Progression.AddPlaytime(citizenid, minutes)
     return affected == 1
 end
 
+function GRP.Progression.RewardMinute(citizenid, amount)
+    if type(citizenid) ~= 'string' or citizenid == '' then
+        return false
+    end
+
+    if type(amount) ~= 'number'
+        or amount < 0
+        or amount % 1 ~= 0
+        or amount > 100 then
+        return false
+    end
+
+    local affected = MySQL.update.await([[
+        UPDATE grp_progression
+        SET
+            xp = xp + ?,
+            playtime = playtime + 1
+        WHERE citizenid = ?
+          AND xp <= 4294967295 - ?
+          AND playtime < 4294967295
+    ]], { amount, citizenid, amount })
+
+    return affected == 1
+end
+
 CreateThread(function()
     while true do
-        Wait(60000)
+        Wait(Config.XP.Interval)
 
         local players = exports.qbx_core:GetQBPlayers()
 
@@ -109,14 +134,38 @@ CreateThread(function()
             local data = player.PlayerData
 
             if data and data.citizenid then
-                local success = GRP.Progression.AddPlaytime(
-                    data.citizenid,
-                    1
-                )
+                local citizenid = data.citizenid
 
-                if Config.Debug and success then
-                    print(('[GRP] +1 zaidimo minute: %s')
-                        :format(data.citizenid))
+
+                local src = data.source
+                local amount = Config.XP.Normal
+
+                -- Patikriname darbo rezima
+                if GRP.Duty.IsWorking(src) then
+                    amount = Config.XP.Working
+                end
+
+                -- AFK zaidejas negauna XP
+                if Config.AFK.Enabled and GRP.AFK.IsAFK(src) then
+                    amount = 0
+                end
+
+                local progression = GRP.Database.LoadProgression(citizenid)
+
+                if progression then
+                    local success = GRP.Progression.RewardMinute(
+                        citizenid,
+                        amount
+                    )
+
+                    if Config.Debug then
+                        print(('[GRP] %s: +%d XP, +1 minute. Sekme: %s')
+                            :format(
+                                citizenid,
+                                amount,
+                                tostring(success)
+                            ))
+                    end
                 end
             end
         end

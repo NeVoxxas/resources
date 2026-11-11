@@ -9,3 +9,9 @@ Config.XP = {
     Normal = 5,
     Working = 6
 }
+
+Config.AFK = {
+    Enabled = true,
+    Timeout = 10000,
+    CheckInterval = 1000
+}

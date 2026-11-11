@@ -128,3 +128,27 @@ RegisterCommand('testxp', function(source)
     print('[GRP] Bendras XP pridetas: ' .. tostring(generalSuccess))
     print('[GRP] Taksisto XP pridetas: ' .. tostring(jobSuccess))
 end, false)
+
+RegisterCommand('testduty', function(source, args)
+    if source == 0 then return end
+
+    if not IsPlayerAceAllowed(source, 'grp.admin') then
+        return
+    end
+
+    local action = args[1]
+
+    if action ~= 'on' and action ~= 'off' then
+        print('[GRP] Naudok /testduty on arba off')
+        return
+    end
+
+    local working = action == 'on'
+    local success = GRP.Duty.SetWorking(source, working)
+
+    if success then
+        print('[GRP] Darbo rezimas: ' .. tostring(working))
+    else
+        print('[GRP] Nepavyko pakeisti darbo rezimo!')
+    end
+end, false)
