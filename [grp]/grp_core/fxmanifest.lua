@@ -12,17 +12,18 @@ shared_scripts {
     'shared/config.lua'
 }
 
+client_scripts {
+    'client/main.lua',
+    'client/afk.lua'
+}
+
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/database.lua',
     'server/duty.lua',
+    'server/afk.lua',
     'server/progression.lua',
     'server/main.lua'
-}
-
-client_scripts {
-    'client/main.lua',
-    'client/afk.lua'
 }
 
 dependencies {

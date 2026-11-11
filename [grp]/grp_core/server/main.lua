@@ -28,36 +28,46 @@ local function GetGRPName(source)
     return firstname .. '_' .. lastname
 end
 
+
 RegisterCommand('info', function(source)
-    if source == 0 then
-        print('[GRP] Skirta tik zaidejam')
-        return
-    end
+    if source == 0 then return end
 
     local player = exports.qbx_core:GetPlayer(source)
 
-    if not player then
+    if not player or not player.PlayerData then
         return
     end
 
     local data = player.PlayerData
+    local citizenid = data.citizenid
 
-    local name = GetGRPName(source)
+    local progression = GRP.Database.LoadProgression(citizenid)
 
-    if not name then
+    if not progression then
+        print('[GRP] Nepavyko uzkrauti statistikos!')
         return
     end
 
-    local message = {
-        'Vardas' .. name,
-        'ID' .. source,
-        'Darbas' .. data.job.label,
-        'Grynieji: $' .. data.money.cash,
-        'Bankas: $' .. data.money.bank
-    }
+    local name = GetGRPName(source) or 'Nezinomas'
 
-    TriggerClientEvent('grp_core:client:showInfo', source, message)
+    local playtime = tonumber(progression.playtime) or 0
+    local hours = math.floor(playtime / 60)
+    local minutes = playtime % 60
 
+    local job = data.job or {}
+    local money = data.money or {}
+
+    TriggerClientEvent('grp_core:client:showInfo', source, {
+        name = name,
+        id = source,
+        xp = progression.xp,
+        hours = hours,
+        minutes = minutes,
+        job = job.label or 'Bedarbis',
+        working = GRP.Duty.IsWorking(source),
+        cash = money.cash or 0,
+        bank = money.bank or 0
+    })
 end, false)
 
 RegisterCommand('testdb', function(source)
