@@ -28,7 +28,6 @@ local function GetGRPName(source)
     return firstname .. '_' .. lastname
 end
 
-
 RegisterCommand('info', function(source)
     if source == 0 then return end
 

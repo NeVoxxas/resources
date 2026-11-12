@@ -26,3 +26,43 @@ CreateThread(function()
         }
     })
 end)
+
+CreateThread(function()
+    local bus = Config.Jobs.bus
+
+    exports.ox_target:addSphereZone({
+        name = 'grp_bus_duty',
+        coords = bus.dutyLocation,
+        radius = 1.2,
+        debug = Config.Debug,
+
+        options = {
+            {
+                name = 'grp_bus_start_duty',
+                icon = 'fa-solid fa-shirt',
+                label = 'Pradeti darbo pamaina',
+                distance = bus.dutyDistance,
+
+                onSelect = function()
+                    TriggerServerEvent(
+                        'grp_jobs:server:setBusDuty',
+                        true
+                    )
+                end
+            },
+            {
+                name = 'grp_bus_end_duty',
+                icon = 'fa-solid fa-door-open',
+                label = 'Baigti darbo pamaina',
+                distance = bus.dutyDistance,
+
+                onSelect = function()
+                    TriggerServerEvent(
+                        'grp_jobs:server:setBusDuty',
+                        false
+                    )
+                end
+            }
+        }
+    })
+end)

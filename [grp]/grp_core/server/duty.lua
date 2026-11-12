@@ -74,3 +74,16 @@ AddEventHandler('QBCore:Server:OnJobUpdate', function(source, job)
         end
     end
 end)
+
+-- -----------------------------------------------------
+--                  EXPORTS
+-- -----------------------------------------------------
+
+exports('SetWorking', function(src, working)
+    -- Kol kas tik grp_jobs gali valdyti darbo busena
+    if GetInvokingResource() ~= 'grp_jobs' then
+        return false
+    end
+
+    return GRP.Duty.SetWorking(src, working)
+end)

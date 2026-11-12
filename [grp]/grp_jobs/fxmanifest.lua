@@ -17,12 +17,14 @@ server_scripts {
 }
 
 client_scripts {
-    'client/main.lua'
+    'client/main.lua',
+    'client/uniform.lua'
 }
 
 dependencies {
     'qbx_core',
     'ox_lib',
     'grp_core',
-    'ox_target'
+    'ox_target',
+    'illenium-appearance'
 }
