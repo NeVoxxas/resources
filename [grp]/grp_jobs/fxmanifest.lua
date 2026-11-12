@@ -13,6 +13,8 @@ shared_scripts {
 }
 
 server_scripts {
+    'server/employment.lua',
+    'server/duty.lua',
     'server/main.lua'
 }
 

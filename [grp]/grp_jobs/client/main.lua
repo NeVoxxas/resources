@@ -19,7 +19,8 @@ CreateThread(function()
 
                 onSelect = function()
                     TriggerServerEvent(
-                        'grp_jobs:server:joinBusJob'
+                        'grp_jobs:server:joinJob',
+                        'bus'
                     )
                 end
             }

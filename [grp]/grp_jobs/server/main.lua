@@ -3,6 +3,7 @@ CreateThread(function()
     print('[GRP JOBS] Autobuso vairuotojas: paruosiamas')
 end)
 
+local joinCooldown = {}
 local dutyCooldown = {}
 local pendingUniform = {}
 
@@ -20,82 +21,55 @@ local function GetManagedJob(jobName)
     return nil
 end
 
-local function CanJoinBusJob(source)
-    local player = exports.qbx_core:GetPlayer(source)
-
-    if not player or not player.PlayerData then
-        return false, 'Veikejas nerastas.'
-    end
-
-    local data = player.PlayerData
-    local bus = Config.Jobs.bus
-
-    if not data.job or data.job.name ~= 'unemployed' then
-        return false, 'Pirmiausia turi buti bedarbis.'
-    end
-
-    local xp = exports.grp_core:GetPlayerXP(source)
-
-    if not xp then
-        return false, 'Nepavyko gauti XP.'
-    end
-
-    if xp < bus.requiredXP then
-        return false, ('Truksta %d XP.')
-            :format(bus.requiredXP - xp)
-    end
-
-    if not exports.qbx_core:GetJob(bus.jobName) then
-        return false, 'Qbox darbas nerastas.'
-    end
-
-    return true, 'Reikalavimai atitinka.'
-end
-
-RegisterNetEvent('grp_jobs:server:joinBusJob', function()
+RegisterNetEvent('grp_jobs:server:joinJob', function(jobId)
     local src = source
-    local bus = Config.Jobs.bus
 
-    -- Tikriname, ar zaidejas yra darbo vietoje
+    -- Patikriname darbo ID
+    if type(jobId) ~= 'string' then return end
+
+    local jobConfig = Config.Jobs[jobId]
+    if not jobConfig then return end
+
+    -- Tikriname, ar darbas turi isidarbinimo vieta
+    if not jobConfig.location then return end
+
+    -- Apsauga nuo daznu uzklausu
+    local now = GetGameTimer()
+
+    if joinCooldown[src]
+        and now - joinCooldown[src] < 2000 then
+        return
+    end
+
+    joinCooldown[src] = now
+
+    -- Gauname zaidejo pozicija
     local ped = GetPlayerPed(src)
-
     if ped == 0 then return end
 
     local coords = GetEntityCoords(ped)
-    local distance = #(coords - bus.location)
+    local maxDistance = jobConfig.serverDistance or 5.0
 
-    if distance > bus.serverDistance then
-        print(('[GRP JOBS] %s bande isidarbinti per toli!')
+    -- Atstumo patikrinimas serverio puseje
+    if #(coords - jobConfig.location) > maxDistance then
+        print(('[GRP JOBS] Zaidejas %d bande isidarbinti per toli!')
             :format(src))
         return
     end
 
-    -- Patikriname XP ir dabartini darba
-    local allowed, message = CanJoinBusJob(src)
-
-    if not allowed then
-        TriggerClientEvent('ox_lib:notify', src, {
-            title = 'Autobusu parkas',
-            description = message,
-            type = 'error'
-        })
-        return
-    end
-
-    -- Suteikiame darba
-    local success = exports.qbx_core:SetJob(
-        src,
-        bus.jobName,
-        bus.grade
-    )
+    -- Universali isidarbinimo funkcija
+    local success, message =
+        GRPJobs.Employment.JoinJob(src, jobId)
 
     TriggerClientEvent('ox_lib:notify', src, {
-        title = 'Autobusu parkas',
-        description = success
-            and 'Sekmingai isidarbinai autobuso vairuotoju!'
-            or 'Nepavyko suteikti darbo.',
+        title = jobConfig.label or 'Darbo sistema',
+        description = message,
         type = success and 'success' or 'error'
     })
+end)
+
+AddEventHandler('playerDropped', function()
+    joinCooldown[source] = nil
 end)
 
 RegisterNetEvent('grp_jobs:server:setBusDuty', function(working)
@@ -291,3 +265,25 @@ AddEventHandler('onResourceStop', function(resource)
         end
     end
 end)
+
+RegisterCommand('testjobduty', function(src)
+    if src == 0 then return end
+
+    if not IsPlayerAceAllowed(src, 'grp.admin') then
+        return
+    end
+
+    local jobId =
+        GRPJobs.Duty.GetPlayerJob(src)
+
+    if not jobId then
+        print('[GRP JOBS] Valdomas darbas nerastas.')
+        return
+    end
+
+    local allowed, message =
+        GRPJobs.Duty.CanChangeDuty(src, jobId)
+
+    print(('[GRP JOBS] Darbas: %s | Leidziama: %s | %s')
+        :format(jobId, tostring(allowed), message))
+end, false)
