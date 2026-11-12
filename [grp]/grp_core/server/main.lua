@@ -162,3 +162,130 @@ RegisterCommand('testduty', function(source, args)
         print('[GRP] Nepavyko pakeisti darbo rezimo!')
     end
 end, false)
+
+RegisterCommand('testid', function(source)
+    if source == 0 then return end
+
+    if not IsPlayerAceAllowed(source, 'grp.admin') then
+        return
+    end
+
+    local player = exports.qbx_core:GetPlayer(source)
+
+    if not player or not player.PlayerData then
+        print('[GRP] Zaidejas nerastas!')
+        return
+    end
+
+    local citizenid = player.PlayerData.citizenid
+    local grpID = GRP.Database.GetPlayerID(citizenid)
+
+    if not grpID then
+        print('[GRP] Nepavyko gauti GRP ID!')
+        return
+    end
+
+    print('[GRP] CitizenID: ' .. citizenid)
+    print('[GRP] Pastovus GRP ID: ' .. grpID)
+    print('[GRP] FiveM sesijos ID: ' .. source)
+end, false)
+
+-- --------------------------------------------------------------------------
+--                              Admin Komandos
+-- --------------------------------------------------------------------------
+
+RegisterCommand('setxp', function(source, args)
+    -- Tikriname administratoriaus teises
+    if source ~= 0 and not IsPlayerAceAllowed(source, 'grp.admin') then
+        return
+    end
+
+    local target = tonumber(args[1])
+    local amount = tonumber(args[2])
+
+    -- Tikriname argumentus
+    if not target or target < 1 or target % 1 ~= 0
+        or not amount or amount < 0
+        or amount % 1 ~= 0 or amount > 100000000 then
+
+        print('[GRP ADMIN] Naudojimas: /setxp [ID] [XP]')
+        return
+    end
+
+    -- Gauname zaidejo Qbox duomenis
+    local player = exports.qbx_core:GetPlayer(target)
+
+    if not player or not player.PlayerData then
+        print('[GRP ADMIN] Zaidejas nerastas!')
+        return
+    end
+
+    local citizenid = player.PlayerData.citizenid
+    if not citizenid then return end
+
+    -- Uztikriname, kad progresijos irasas egzistuoja
+    local progression = GRP.Database.LoadProgression(citizenid)
+
+    if not progression then
+        print('[GRP ADMIN] Nepavyko gauti progresijos!')
+        return
+    end
+
+    local oldXP = tonumber(progression.xp) or 0
+
+    -- Nustatome nauja XP kieki
+    local affected = MySQL.update.await([[
+        UPDATE grp_progression
+        SET xp = ?
+        WHERE citizenid = ?
+    ]], { amount, citizenid })
+
+    if affected == nil then
+        print('[GRP ADMIN] MariaDB klaida!')
+        return
+    end
+
+    -- Administravimo zurnalas
+    print(('[GRP ADMIN] Admin ID: %s | CitizenID: %s | XP: %d -> %d')
+        :format(source, citizenid, oldXP, amount))
+
+    -- Informuojame zaideja
+    TriggerClientEvent('ox_lib:notify', target, {
+        title = 'GRP - Patirties taskai',
+        description = 'Administratorius nustate tavo XP: ' .. amount,
+        type = 'inform'
+    })
+
+    -- Informuojame administratoriu
+    if source > 0 then
+        TriggerClientEvent('ox_lib:notify', source, {
+            title = 'GRP administravimas',
+            description = ('Zaidejo %d XP nustatytas: %d')
+                :format(target, amount),
+            type = 'success'
+        })
+    end
+end, false)
+
+-- --------------------------------------------------------------------------
+--                              EXPORTAI
+-- --------------------------------------------------------------------------
+
+exports('GetPlayerXP', function(source)
+    local player = exports.qbx_core:GetPlayer(source)
+
+    if not player or not player.PlayerData then
+        return nil
+    end
+
+    local citizenid = player.PlayerData.citizenid
+    if not citizenid then return nil end
+
+    local progression = GRP.Database.LoadProgression(citizenid)
+
+    if not progression then
+        return nil
+    end
+
+    return tonumber(progression.xp)
+end)

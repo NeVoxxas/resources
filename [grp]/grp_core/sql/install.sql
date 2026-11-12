@@ -25,3 +25,14 @@ CREATE TABLE IF NOT EXISTS grp_job_xp (
 
     PRIMARY KEY (citizenid)
 );
+
+CREATE TABLE IF NOT EXISTS grp_players (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    citizenid VARCHAR(50) NOT NULL,
+
+    created_at TIMESTAMP NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY unique_citizenid (citizenid)
+);

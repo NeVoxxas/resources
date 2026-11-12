@@ -58,3 +58,22 @@ function GRP.Database.LoadJobXP(citizenid)
 
     return jobXP
 end
+
+function GRP.Database.GetPlayerID(citizenid)
+    if type(citizenid) ~= 'string' or citizenid == '' then
+        return nil
+    end
+
+    MySQL.insert.await([[
+        INSERT IGNORE INTO grp_players (citizenid)
+        VALUES (?)
+    ]], { citizenid })
+
+    local id = MySQL.scalar.await([[
+        SELECT id
+        FROM grp_players
+        WHERE citizenid = ?
+    ]], { citizenid })
+
+    return id
+end
