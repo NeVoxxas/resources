@@ -1,15 +1,20 @@
-
 fx_version 'cerulean'
 game 'gta5'
+lua54 'yes'
 
-name 'grp_jobs'
-author 'GRP Development'
-description 'GRP - darbu sistema'
-version '0.1.0'
+author 'GRP'
+description 'Universali GRP darbu sistema (Qbox)'
+version '2.0.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
-    'shared/config.lua'
+    'shared/config.lua',
+    'shared/jobs/*.lua'
+}
+
+client_scripts {
+    'client/uniform.lua',
+    'client/main.lua'
 }
 
 server_scripts {
@@ -18,15 +23,10 @@ server_scripts {
     'server/main.lua'
 }
 
-client_scripts {
-    'client/main.lua',
-    'client/uniform.lua'
-}
-
 dependencies {
     'qbx_core',
-    'ox_lib',
     'grp_core',
+    'ox_lib',
     'ox_target',
     'illenium-appearance'
 }

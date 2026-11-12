@@ -1,21 +1,7 @@
+Config = Config or {}
+Config.Debug = false
+Config.Jobs = {}
 
-Config = {}
-
-Config.Debug = true
-
-Config.Jobs = {
-    bus = {
-        label = 'Autobuso vairuotojas',
-        requiredXP = 500,
-        location = vec3(454.2, -600.6, 28.6),
-        interactionDistance = 2.0,
-        serverDistance = 5.0,
-        dutyLocation = vec3(453.09, -607.81, 28.59),
-        dutyDistance = 2.0,
-        jobName = 'bus',
-        grade = 0,
-        salary = 50,
-        jobXP = 2,
-        xpCategory = 'civilian'
-    }
-}
+Config.JoinCooldownMs = 2000
+Config.DutyCooldownMs = 2000
+Config.UniformTimeoutMs = 10000
