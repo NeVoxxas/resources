@@ -7,7 +7,8 @@ function GRPJobs.Employment.CanJoinJob(src, jobId)
     end
 
     local cfg = Config.Jobs[jobId]
-    if not cfg or not cfg.employment or cfg.employment.type ~= 'public' then
+    local joinType = cfg and cfg.employment and cfg.employment.type
+    if joinType ~= 'public' and joinType ~= 'invite' then
         return false, 'Šiame darbe įsidarbinti šiuo būdu negalima.'
     end
 
@@ -22,17 +23,27 @@ function GRPJobs.Employment.CanJoinJob(src, jobId)
         return false, 'Pirmiausia turi būti bedarbis.'
     end
 
+    -- Darbai su pakvietimu: reikia pakvietimo (direktorius ir pavaduotojas XP reikalavimo neturi)
+    local isStaff = false
+    if joinType == 'invite' then
+        local ok, inviteMessage, staff = GRPJobs.Management.CheckInviteAccess(src, jobId)
+        if not ok then return false, inviteMessage end
+        isStaff = staff == true
+    end
+
     local requiredXP = req.minXP or 0
     if type(requiredXP) ~= 'number' or requiredXP < 0 then
         return false, 'Neteisinga darbo XP konfigūracija.'
     end
 
-    local xp = exports.grp_core:GetPlayerXP(src)
-    if type(xp) ~= 'number' then
-        return false, 'Nepavyko gauti XP.'
-    end
-    if xp < requiredXP then
-        return false, ('Trūksta %d XP.'):format(requiredXP - xp)
+    if not isStaff then
+        local xp = exports.grp_core:GetPlayerXP(src)
+        if type(xp) ~= 'number' then
+            return false, 'Nepavyko gauti XP.'
+        end
+        if xp < requiredXP then
+            return false, ('Trūksta %d XP.'):format(requiredXP - xp)
+        end
     end
 
     if type(cfg.jobName) ~= 'string' or not exports.qbx_core:GetJob(cfg.jobName) then
@@ -50,6 +61,10 @@ function GRPJobs.Employment.JoinJob(src, jobId)
     local success = exports.qbx_core:SetJob(src, cfg.jobName, cfg.grade or 0)
     if not success then
         return false, 'Nepavyko suteikti darbo.'
+    end
+
+    if cfg.employment.type == 'invite' then
+        GRPJobs.Management.OnJoined(src, jobId)
     end
 
     if Config.Debug then

@@ -13,7 +13,8 @@ RegisterNetEvent('grp_jobs:server:joinJob', function(jobId)
     if type(jobId) ~= 'string' then return end
 
     local cfg = Config.Jobs[jobId]
-    if not cfg or not cfg.employment or cfg.employment.type ~= 'public'
+    local joinType = cfg and cfg.employment and cfg.employment.type
+    if (joinType ~= 'public' and joinType ~= 'invite')
         or not cfg.employment.coords then
         return
     end

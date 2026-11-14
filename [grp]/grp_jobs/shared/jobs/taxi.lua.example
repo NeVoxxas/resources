@@ -1,0 +1,77 @@
+-- PAVYZDYS: darbas su pakvietimu (direktorius, pavaduotojai, rangai).
+-- Naudojimas: nukopijuok į shared/jobs/taxi.lua, pakeisk koordinates ir
+-- užregistruok darbą 'taxi' qbx_core shared jobs. Failai su galūne .example nepaleidžiami.
+--
+-- Darbo paleidimas:
+--   1. Administratorius: /skirtidirektoriu ID taxi
+--   2. Direktorius įsidarbina įsidarbinimo taške (XP nereikalaujamas)
+--   3. Direktorius naudoja /priimti ID arba vadovo tašką, kad pakviestų kitus
+--   4. Pakviestas žaidėjas (su pakankamu XP, galioja Config.InviteHours val.) įsidarbina taške
+Config.Jobs.taxi = {
+    label = 'Taksi vairuotojas',
+    jobName = 'taxi',
+    grade = 0,
+
+    employment = {
+        type = 'invite',
+        coords = vec3(0.0, 0.0, 0.0),
+        distance = 2.0,
+        serverDistance = 5.0
+    },
+
+    requirements = {
+        minXP = 1500,
+        unemployed = true
+    },
+
+    duty = {
+        coords = vec3(0.0, 0.0, 0.0),
+        distance = 2.0,
+        serverDistance = 5.0
+    },
+
+    -- Vadovo taškas: direktoriaus ir pavaduotojo valdymo meniu
+    management = {
+        coords = vec3(0.0, 0.0, 0.0),
+        distance = 2.0,
+        serverDistance = 5.0,
+        -- Ką gali pavaduotojas (direktorius gali viską). Pridėk daugiau vėliau.
+        deputyPermissions = { invite = true, kick = true, setRank = true }
+    },
+
+    -- Pradiniai rangų pavadinimai (pirmą kartą sukuriama Config.Ranks.min rangų).
+    -- Direktorius vėliau keičia pavadinimus ir skaičių (5-15) valdymo meniu.
+    ranks = {
+        defaults = { 'Stažuotojas', 'Vairuotojas', 'Vyresnysis vairuotojas', 'Instruktorius', 'Vadybininkas' }
+    },
+
+    -- Apranga: keli rinkiniai, kuriuos direktorius priskiria rangams.
+    -- Rangas be rinkinio naudoja 'default'.
+    uniforms = {
+        default = {
+            male = { components = { { component_id = 11, drawable = 13, texture = 0 } } },
+            female = { components = { { component_id = 11, drawable = 27, texture = 0 } } }
+        },
+        senior = {
+            male = { components = { { component_id = 11, drawable = 13, texture = 1 } } },
+            female = { components = { { component_id = 11, drawable = 27, texture = 1 } } }
+        }
+    },
+
+    rewards = {
+        xp = { category = 'taxi', perMinute = 3 },
+        pay = { account = 'bank', min = 100, max = 200, xpCategory = 'taxi', maxAtXP = 2000, everySeconds = 60 }
+    },
+
+    -- Rangas gali riboti, kuriuos transportus žaidėjas gauna (valdymo meniu)
+    vehicle = {
+        spawn = vec4(0.0, 0.0, 0.0, 0.0),
+        platePrefix = 'TAX',
+        models = {
+            { model = 'taxi', label = 'Taksi' },
+            { model = 'stretch', label = 'Limuzinas' }
+        }
+    },
+
+    routes = {}
+}

@@ -7,15 +7,56 @@ local function Notify(message, kind)
     lib.notify({ title = 'Darbo sistema', description = message, type = kind or 'inform' })
 end
 
-local function GetUniform(cfg)
-    local ped = PlayerPedId()
-    local model = GetEntityModel(ped)
+-- preset: uniformos rinkinio raktas pagal rangą (cfg.uniforms[preset]); nil = numatytasis
+local function GetUniform(cfg, preset)
+    local set = cfg.uniform
+
+    if cfg.uniforms then
+        set = (preset and cfg.uniforms[preset]) or cfg.uniforms.default or cfg.uniform
+    end
+
+    if not set then return nil end
+
+    local model = GetEntityModel(PlayerPedId())
     if model == joaat('mp_m_freemode_01') then
-        return cfg.uniform and cfg.uniform.male
+        return set.male
     elseif model == joaat('mp_f_freemode_01') then
-        return cfg.uniform and cfg.uniform.female
+        return set.female
     end
     return nil
+end
+
+-- Patikrina, ar visi uniformos drabužiai egzistuoja šiam modeliui.
+-- Grąžina false ir pirmo blogo elemento aprašą, jei ne.
+local function ValidateUniform(ped, uniform)
+    for _, item in ipairs(uniform.components or {}) do
+        local count = GetNumberOfPedDrawableVariations(ped, item.component_id)
+        if item.drawable < 0 or item.drawable >= count then
+            return false, ('component %s drawable %s (max %s)')
+                :format(item.component_id, item.drawable, count - 1)
+        end
+
+        local textures = GetNumberOfPedTextureVariations(
+            ped, item.component_id, item.drawable
+        )
+        if (item.texture or 0) >= textures then
+            return false, ('component %s texture %s (max %s)')
+                :format(item.component_id, item.texture or 0, textures - 1)
+        end
+    end
+
+    for _, item in ipairs(uniform.props or {}) do
+        -- drawable = -1 reiškia „nuimti daiktą“
+        if item.drawable ~= -1 then
+            local count = GetNumberOfPedPropDrawableVariations(ped, item.prop_id)
+            if item.drawable < 0 or item.drawable >= count then
+                return false, ('prop %s drawable %s (max %s)')
+                    :format(item.prop_id, item.drawable, count - 1)
+            end
+        end
+    end
+
+    return true
 end
 
 local function RestoreClothes()
@@ -42,17 +83,24 @@ local function RestoreClothes()
     return ok
 end
 
-local function ApplyUniform(jobId)
+local function ApplyUniform(jobId, preset)
     if busy then return false end
     if uniformActive then return false end
 
     local cfg = Config.Jobs[jobId]
-    if not cfg or not cfg.uniform then return false end
+    if not cfg or (not cfg.uniform and not cfg.uniforms) then return false end
     if GetResourceState('illenium-appearance') ~= 'started' then return false end
 
-    local uniform = GetUniform(cfg)
+    local uniform = GetUniform(cfg, preset)
     if not uniform or type(uniform.components) ~= 'table' or #uniform.components == 0 then
         Notify('Šiam veikėjo modeliui nėra darbo uniformos.', 'error')
+        return false
+    end
+
+    local valid, reason = ValidateUniform(PlayerPedId(), uniform)
+    if not valid then
+        print(('[GRP JOBS] Netinkama uniforma darbui %s: %s'):format(jobId, reason))
+        Notify('Darbo uniforma sukonfigūruota neteisingai. Pranešk administracijai.', 'error')
         return false
     end
 
@@ -88,8 +136,8 @@ local function ApplyUniform(jobId)
     return true
 end
 
-RegisterNetEvent('grp_jobs:client:applyUniform', function(jobId, requestId)
-    local success = ApplyUniform(jobId)
+RegisterNetEvent('grp_jobs:client:applyUniform', function(jobId, requestId, preset)
+    local success = ApplyUniform(jobId, preset)
     TriggerServerEvent('grp_jobs:server:uniformResult', jobId, requestId, success)
 end)
 

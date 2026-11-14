@@ -5,7 +5,7 @@ lua54 'yes'
 name 'grp_core'
 author 'Voxx - GRP Dev'
 description 'LSVG GRP 5M'
-verison '0.1.0'
+version '0.1.0'
 
 shared_scripts {
     '@ox_lib/init.lua',

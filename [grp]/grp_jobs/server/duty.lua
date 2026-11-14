@@ -14,6 +14,28 @@ local function Notify(src, message, kind)
     })
 end
 
+function GRPJobs.IsPlayerNear(src, coords, maxDistance)
+    local ped = GetPlayerPed(src)
+    if not ped or ped == 0 then return false end
+
+    return #(GetEntityCoords(ped) - coords) <= maxDistance
+end
+
+-- Pradeda grp_core darbo būseną. Jei darbas turi rewards.xp, grp_core timeris
+-- kas minutę pamainos metu prideda perMinute tos kategorijos XP.
+local function StartWorking(src, jobId)
+    local xp = Config.Jobs[jobId].rewards and Config.Jobs[jobId].rewards.xp
+
+    if xp and xp.category then
+        return exports.grp_core:SetWorking(src, true, {
+            xpCategory = xp.category,
+            jobXP = xp.perMinute or 0
+        })
+    end
+
+    return exports.grp_core:SetWorking(src, true)
+end
+
 local function Identity(src)
     local player = exports.qbx_core:GetPlayer(src)
     if not player or not player.PlayerData then return nil, nil end
@@ -27,6 +49,22 @@ local function ClearPending(src, restore)
     end
 end
 
+-- Kabliukai kitiems resursams (serverio pusėje):
+--   AddEventHandler('grp_jobs:dutyStarted', function(src, jobId) end)
+--   AddEventHandler('grp_jobs:dutyEnded',   function(src, jobId) end)
+-- Eksportai:
+--   exports.grp_jobs:GetActiveDutyJob(src) -> jobId | nil
+--   exports.grp_jobs:IsOnDuty(src, jobId?) -> boolean
+local function NotifyDutyStarted(src, jobId)
+    TriggerClientEvent('grp_jobs:client:dutyState', src, true, jobId)
+    TriggerEvent('grp_jobs:dutyStarted', src, jobId)
+end
+
+local function NotifyDutyEnded(src, jobId)
+    TriggerClientEvent('grp_jobs:client:dutyState', src, false, jobId)
+    TriggerEvent('grp_jobs:dutyEnded', src, jobId)
+end
+
 local function ClearStale(src)
     local citizenid, job = Identity(src)
     local a = active[src]
@@ -37,6 +75,7 @@ local function ClearStale(src)
         exports.grp_core:SetWorking(src, false)
         active[src] = nil
         TriggerClientEvent('grp_jobs:client:restoreClothes', src)
+        NotifyDutyEnded(src, a.jobId)
     end
     local p = pending[src]
     if p and (not citizenid or p.citizenid ~= citizenid) then
@@ -86,13 +125,40 @@ function GRPJobs.Duty.IsActive(src)
     return active[src] ~= nil
 end
 
+function GRPJobs.Duty.GetActiveJob(src)
+    ClearStale(src)
+    return active[src] and active[src].jobId or nil
+end
+
+-- Kopija: [src] = jobId visiems, kurie dabar dirba pamainoje
+function GRPJobs.Duty.GetActive()
+    local list = {}
+
+    for src in pairs(active) do
+        local jobId = GRPJobs.Duty.GetActiveJob(src)
+        if jobId then list[src] = jobId end
+    end
+
+    return list
+end
+
+exports('GetActiveDutyJob', function(src)
+    return GRPJobs.Duty.GetActiveJob(src)
+end)
+
+exports('IsOnDuty', function(src, jobId)
+    local current = GRPJobs.Duty.GetActiveJob(src)
+    if not current then return false end
+    return jobId == nil or current == jobId
+end)
+
 -- restore: ar reikia siųsti komandą drabužių atkūrimui
+-- Cooldown čia sąmoningai nenunulinamas (kad nebūtų galima apeiti apsaugos nuo spamo).
 function GRPJobs.Duty.ForceEnd(src, restore)
     local a = active[src]
     local p = pending[src]
     active[src] = nil
     pending[src] = nil
-    cooldown[src] = nil
 
     if a then
         exports.grp_core:SetWorking(src, false)
@@ -102,7 +168,7 @@ function GRPJobs.Duty.ForceEnd(src, restore)
         TriggerClientEvent('grp_jobs:client:restoreClothes', src)
     end
     if a then
-        TriggerClientEvent('grp_jobs:client:dutyState', src, false, a.jobId)
+        NotifyDutyEnded(src, a.jobId)
     end
 end
 
@@ -134,11 +200,11 @@ function GRPJobs.Duty.SetDuty(src, jobId, working)
         if active[src] then return false, 'Pamaina jau pradėta.' end
 
         local cfg = Config.Jobs[jobId]
-        if not cfg.uniform then
-            local success = exports.grp_core:SetWorking(src, true)
+        if not cfg.uniform and not cfg.uniforms then
+            local success = StartWorking(src, jobId)
             if not success then return false, 'Nepavyko pradėti pamainos.' end
             active[src] = { citizenid = citizenid, jobId = jobId }
-            TriggerClientEvent('grp_jobs:client:dutyState', src, true, jobId)
+            NotifyDutyStarted(src, jobId)
             return true, 'Pamaina pradėta.'
         end
 
@@ -151,7 +217,8 @@ function GRPJobs.Duty.SetDuty(src, jobId, working)
             requestId = requestId,
             expires = now + Config.UniformTimeoutMs
         }
-        TriggerClientEvent('grp_jobs:client:applyUniform', src, jobId, requestId)
+        TriggerClientEvent('grp_jobs:client:applyUniform', src, jobId, requestId,
+            GRPJobs.Management.GetUniformPreset(src, jobId))
 
         SetTimeout(Config.UniformTimeoutMs, function()
             local p = pending[src]
@@ -165,6 +232,8 @@ function GRPJobs.Duty.SetDuty(src, jobId, working)
 
     local a = active[src]
     if not a or a.jobId ~= jobId then
+        -- Sinchronizuojame klientą, kad mygtukai neužstrigtų
+        TriggerClientEvent('grp_jobs:client:dutyState', src, false, jobId)
         return false, 'Aktyvios šio darbo pamainos nėra.'
     end
 
@@ -192,7 +261,7 @@ RegisterNetEvent('grp_jobs:server:uniformResult', function(jobId, requestId, suc
         return
     end
 
-    local started = exports.grp_core:SetWorking(src, true)
+    local started = StartWorking(src, jobId)
     if not started then
         TriggerClientEvent('grp_jobs:client:restoreClothes', src)
         Notify(src, 'Nepavyko pradėti pamainos.', 'error')
@@ -200,7 +269,7 @@ RegisterNetEvent('grp_jobs:server:uniformResult', function(jobId, requestId, suc
     end
 
     active[src] = { citizenid = citizenid, jobId = jobId }
-    TriggerClientEvent('grp_jobs:client:dutyState', src, true, jobId)
+    NotifyDutyStarted(src, jobId)
     Notify(src, 'Pamaina pradėta.', 'success')
 end)
 
@@ -208,10 +277,12 @@ AddEventHandler('playerDropped', function()
     local src = source
     -- Neįspėjame atsijungusio kliento.
     GRPJobs.Duty.ForceEnd(src, false)
+    cooldown[src] = nil
 end)
 
 AddEventHandler('QBCore:Server:OnPlayerUnload', function(src)
     GRPJobs.Duty.ForceEnd(src, false)
+    cooldown[src] = nil
 end)
 
 AddEventHandler('QBCore:Server:OnJobUpdate', function(src, job)

@@ -10,6 +10,27 @@ local JobXPCategories = {
     civilian = 'civilian_xp'
 }
 
+function GRP.Progression.IsValidCategory(category)
+    return type(category) == 'string' and JobXPCategories[category] ~= nil
+end
+
+-- Grąžina žaidėjo darbo XP nurodytoje kategorijoje (arba nil)
+function GRP.Progression.GetJobXP(source, category)
+    local column = JobXPCategories[category]
+    if not column then return nil end
+
+    local player = exports.qbx_core:GetPlayer(source)
+    if not player or not player.PlayerData then return nil end
+
+    local citizenid = player.PlayerData.citizenid
+    if not citizenid then return nil end
+
+    local row = GRP.Database.LoadJobXP(citizenid)
+    if not row then return nil end
+
+    return tonumber(row[column])
+end
+
 function GRP.Progression.AddXP(source, amount)
     if not source or source <= 0 then return false end
 
@@ -165,6 +186,29 @@ CreateThread(function()
                                 amount,
                                 tostring(success)
                             ))
+                    end
+
+                    -- Darbo XP už pamainos minutę (AFK žaidėjas negauna)
+                    if success and amount > 0 then
+                        local info = GRP.Duty.GetWorkingInfo(src)
+
+                        if info then
+                            local jobSuccess = GRP.Progression.AddJobXP(
+                                src,
+                                info.xpCategory,
+                                info.jobXP
+                            )
+
+                            if Config.Debug then
+                                print(('[GRP] %s: +%d %s XP. Sekme: %s')
+                                    :format(
+                                        citizenid,
+                                        info.jobXP,
+                                        info.xpCategory,
+                                        tostring(jobSuccess)
+                                    ))
+                            end
+                        end
                     end
                 end
             end
